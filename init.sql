@@ -1,34 +1,4 @@
--- complaint_mgmt_full.sql
--- Single-file PostgreSQL schema, sample data, triggers, views, functions, indexes, roles, and audit logging
--- Safe to run in a fresh database. Review before running in production.
-
 BEGIN;
-
--- ==========================
--- DROP (safe re-run)
--- ==========================
-DROP TRIGGER IF EXISTS trg_audit_users ON Users;
-DROP TRIGGER IF EXISTS trg_audit_complaints ON Complaints;
-DROP TRIGGER IF EXISTS trg_set_complaint_in_progress ON ComplaintAssignments;
-DROP TRIGGER IF EXISTS trg_set_complaint_resolved ON ComplaintActions;
-DROP TRIGGER IF EXISTS trg_set_complaint_closed_on_feedback ON Feedback;
-
-DROP FUNCTION IF EXISTS audit_table() CASCADE;
-DROP FUNCTION IF EXISTS set_complaint_in_progress() CASCADE;
-DROP FUNCTION IF EXISTS set_complaint_resolved() CASCADE;
-DROP FUNCTION IF EXISTS set_complaint_closed_on_feedback() CASCADE;
-DROP FUNCTION IF EXISTS update_complaint_status() CASCADE;
-DROP FUNCTION IF EXISTS file_complaint(INT, VARCHAR, TEXT, VARCHAR) CASCADE;
-DROP FUNCTION IF EXISTS officer_workload(INT) CASCADE;
-
-DROP VIEW IF EXISTS ComplaintSummary CASCADE;
-DROP VIEW IF EXISTS FeedbackSummary CASCADE;
-
-DROP TABLE IF EXISTS ComplaintActions, ComplaintAssignments, ComplaintEvidence, Feedback, Complaints, Officers, Users, AuditLog CASCADE;
-
--- ==========================
--- MAIN TABLES
--- ==========================
 
 CREATE TABLE Users (
     user_id SERIAL PRIMARY KEY,
@@ -94,9 +64,6 @@ CREATE TABLE ComplaintActions (
     action_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- ==========================
--- AUDIT LOG
--- ==========================
 CREATE TABLE AuditLog (
     audit_id BIGSERIAL PRIMARY KEY,
     table_name TEXT NOT NULL,
@@ -107,9 +74,6 @@ CREATE TABLE AuditLog (
     row_data JSONB
 );
 
--- ==========================
--- CONSTRAINTS and CHECKs
--- ==========================
 ALTER TABLE Users
     ADD CONSTRAINT chk_role CHECK (role IN ('citizen', 'officer', 'admin'));
 
@@ -133,9 +97,6 @@ BEFORE UPDATE ON Complaints
 FOR EACH ROW
 EXECUTE FUNCTION complaints_update_timestamp();
 
--- ==========================
--- INDEXES
--- ==========================
 CREATE INDEX IF NOT EXISTS idx_users_email ON Users(email);
 CREATE INDEX IF NOT EXISTS idx_complaints_status ON Complaints(status);
 CREATE INDEX IF NOT EXISTS idx_complaints_category ON Complaints(category);
@@ -143,9 +104,7 @@ CREATE INDEX IF NOT EXISTS idx_assignments_officer ON ComplaintAssignments(offic
 CREATE INDEX IF NOT EXISTS idx_actions_complaint ON ComplaintActions(complaint_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_complaint ON Feedback(complaint_id);
 
--- ==========================
--- VIEWS
--- ==========================
+
 CREATE OR REPLACE VIEW ComplaintSummary AS
 SELECT
     c.complaint_id,
@@ -184,10 +143,6 @@ JOIN Users cu ON f.user_id = cu.user_id
 LEFT JOIN ComplaintAssignments ca ON ca.complaint_id = c.complaint_id
 LEFT JOIN Officers o ON ca.officer_id = o.officer_id
 LEFT JOIN Users ou ON o.user_id = ou.user_id;
-
--- ==========================
--- FUNCTIONS: Business logic
--- ==========================
 
 -- File a complaint helper
 CREATE OR REPLACE FUNCTION file_complaint(
@@ -230,10 +185,6 @@ BEGIN
     GROUP BY u.name;
 END;
 $$ LANGUAGE plpgsql;
-
--- ==========================
--- TRIGGERS: lifecycle automation
--- ==========================
 
 -- Trigger 1: set complaint 'In Progress' on assignment
 CREATE OR REPLACE FUNCTION set_complaint_in_progress()
@@ -319,7 +270,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Attach audit trigger to important tables
 CREATE TRIGGER trg_audit_users
 AFTER INSERT OR UPDATE OR DELETE ON Users
 FOR EACH ROW
@@ -330,12 +280,6 @@ AFTER INSERT OR UPDATE OR DELETE ON Complaints
 FOR EACH ROW
 EXECUTE FUNCTION audit_table();
 
--- You can add similar audit triggers on other tables as needed.
-
--- ==========================
--- SAMPLE DATA
--- ==========================
--- Users
 -- USERS
 INSERT INTO Users (name, email, phone, role, password_hash)
 VALUES
@@ -423,9 +367,6 @@ VALUES
 (7, 3, 5, 'Construction halted, environment cleaner.')
 ON CONFLICT DO NOTHING;
 
--- ==========================
--- ROLE-BASED (optional) — create sample roles and grant minimal privileges
--- ==========================
 DO $$
 BEGIN
     -- Create roles only if they don't exist
@@ -444,9 +385,6 @@ GRANT SELECT, INSERT ON Complaints TO citizen;
 GRANT SELECT, INSERT, UPDATE ON ComplaintAssignments TO officer;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO admin_role;
 
--- ==========================
--- HELPER: convenience queries as SQL functions
--- ==========================
 -- Find complaints by status
 CREATE OR REPLACE FUNCTION complaints_by_status(p_status VARCHAR)
 RETURNS TABLE (complaint_id INT, category TEXT, description TEXT, location TEXT, submitted_at TIMESTAMP WITH TIME ZONE) AS $$
@@ -459,7 +397,4 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- ==========================
--- GRACEFUL COMMIT
--- ==========================
 COMMIT;
