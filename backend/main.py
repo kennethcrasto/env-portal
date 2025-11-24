@@ -56,5 +56,5 @@ async def shutdown():
 if __name__ == "__main__":
     host = os.getenv("APP_HOST", "0.0.0.0")
     port = int(os.getenv("APP_PORT", 5000)) 
-    print(f"🚀 Server running on {host}:{port}")
+    print(f"Server running on {host}:{port}")
     uvicorn.run("main:app", host=host, port=port, reload=True)
