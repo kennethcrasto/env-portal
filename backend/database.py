@@ -21,7 +21,7 @@ async def init_db_pool():
             # test connection
             async with _pool.acquire() as conn:
                 await conn.fetchval("SELECT 1")
-            print("✅ Database connected successfully")
+            print("Database connected successfully")
         except Exception as e:
             print("❌ Database connection failed:", e)
             raise
